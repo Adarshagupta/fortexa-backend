@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: fortexa_postgres
+    environment:
+      POSTGRES_DB: fortexa
+      POSTGRES_USER: fortexa
+      POSTGRES_PASSWORD: fortexa123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - fortexa_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fortexa -d fortexa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and Celery
+  redis:
+    image: redis:7-alpine
+    container_name: fortexa_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fortexa_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Application
+  api:
+    build: .
+    container_name: fortexa_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://fortexa:fortexa123@postgres:5432/fortexa
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-here-change-in-production
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - fortexa_network
+    restart: unless-stopped
+
+  # Celery Worker
+  worker:
+    build: .
+    container_name: fortexa_worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://fortexa:fortexa123@postgres:5432/fortexa
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-here-change-in-production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - fortexa_network
+    restart: unless-stopped
+
+  # Celery Beat Scheduler
+  beat:
+    build: .
+    container_name: fortexa_beat
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://fortexa:fortexa123@postgres:5432/fortexa
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-here-change-in-production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - fortexa_network
+    restart: unless-stopped
+
+  # Flower for monitoring Celery
+  flower:
+    build: .
+    container_name: fortexa_flower
+    command: celery -A app.tasks.celery_app flower --port=5555
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    networks:
+      - fortexa_network
+    restart: unless-stopped
+
+networks:
+  fortexa_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data: 

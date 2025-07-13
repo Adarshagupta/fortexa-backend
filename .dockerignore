@@ -1,0 +1,112 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Environment files
+.env
+.env.*
+environment.example
+
+# Logs
+*.log
+logs/
+.logs/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+
+# Database
+*.db
+*.sqlite3
+
+# Prisma
+prisma/migrations/
+node_modules/
+
+# Uploads and data
+uploads/
+data/
+temp/
+
+# Scripts
+*.sh
+setup.sh
+start.sh
+
+# Requirements variations
+requirements*.txt
+!requirements.txt 
