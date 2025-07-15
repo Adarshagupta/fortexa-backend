@@ -70,13 +70,7 @@ class DeleteApiKeyResponse(BaseModel):
     message: str = "API key deleted successfully"
     success: bool = True
 
-class TestConnectionRequest(BaseModel):
-    api_key_id: str
 
-class TestConnectionResponse(BaseModel):
-    success: bool
-    message: str
-    connection_details: Optional[dict] = None
 
 class SyncPortfolioRequest(BaseModel):
     api_key_id: Optional[str] = None  # If None, sync all active keys

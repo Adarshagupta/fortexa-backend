@@ -367,64 +367,7 @@ class BinanceAPIService:
         """Get current timestamp in milliseconds"""
         return int(time.time() * 1000)
     
-    async def test_connection(self, api_key: str, secret_key: str, testnet: bool = False) -> Dict[str, Any]:
-        """
-        Test connection to Binance API with provided credentials
-        """
-        try:
-            base_url = self._get_base_url(testnet)
-            session = await self.get_session()
-            
-            # Create query parameters
-            timestamp = self._get_timestamp()
-            query_params = {
-                'timestamp': timestamp
-            }
-            
-            # Create query string and signature
-            query_string = urlencode(query_params)
-            signature = self._generate_signature(query_string, secret_key)
-            
-            # Add signature to query string
-            query_string += f"&signature={signature}"
-            
-            # Make request to account endpoint
-            response = await session.get(
-                f"{base_url}/api/v3/account?{query_string}",
-                headers={
-                    'X-MBX-APIKEY': api_key,
-                    'User-Agent': 'Fortexa-Trading-App/1.0'
-                }
-            )
-            
-            response.raise_for_status()
-            account_data = response.json()
-            
-            # Extract relevant connection info
-            connection_info = {
-                'account_type': account_data.get('accountType', 'SPOT'),
-                'can_trade': account_data.get('canTrade', False),
-                'can_withdraw': account_data.get('canWithdraw', False),
-                'can_deposit': account_data.get('canDeposit', False),
-                'permissions': account_data.get('permissions', []),
-                'balances_count': len(account_data.get('balances', [])),
-                'testnet': testnet
-            }
-            
-            logger.info(f"Successfully tested Binance API connection (testnet: {testnet})")
-            return connection_info
-            
-        except httpx.HTTPError as e:
-            logger.error(f"Binance API connection test failed: {e}")
-            if e.response.status_code == 401:
-                raise Exception("Invalid API key or secret")
-            elif e.response.status_code == 403:
-                raise Exception("API key does not have required permissions")
-            else:
-                raise Exception(f"API connection failed: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error testing Binance connection: {e}")
-            raise
+
     
     async def get_account_info(self, api_key: str, secret_key: str, testnet: bool = False) -> Dict[str, Any]:
         """
@@ -469,6 +412,86 @@ class BinanceAPIService:
             logger.error(f"Unexpected error fetching account info: {e}")
             raise
     
+    async def _recalculate_portfolio_totals(self, portfolio_id: str, db) -> None:
+        """
+        Recalculate and update portfolio totals based on current holdings
+        """
+        try:
+            # Get all holdings for this portfolio
+            holdings = await db.portfolioholding.find_many(
+                where={'portfolioId': portfolio_id}
+            )
+            
+            # Calculate totals
+            total_value = 0.0
+            total_cost = 0.0
+            total_gain_loss = 0.0
+            
+            for holding in holdings:
+                total_value += holding.totalValue or 0.0
+                total_cost += holding.totalCost or 0.0
+                total_gain_loss += holding.gainLoss or 0.0
+            
+            # Calculate percentage
+            total_gain_loss_percent = 0.0
+            if total_cost > 0:
+                total_gain_loss_percent = (total_gain_loss / total_cost) * 100
+            
+            # Update portfolio totals
+            await db.portfolio.update(
+                where={'id': portfolio_id},
+                data={
+                    'totalValue': total_value,
+                    'totalCost': total_cost,
+                    'totalGainLoss': total_gain_loss,
+                    'totalGainLossPercent': total_gain_loss_percent,
+                    'lastUpdated': datetime.now()
+                }
+            )
+            
+            logger.info(f"Updated portfolio totals: value=${total_value:.2f}, cost=${total_cost:.2f}, gain_loss=${total_gain_loss:.2f} ({total_gain_loss_percent:.2f}%)")
+            
+        except Exception as e:
+            logger.error(f"Failed to recalculate portfolio totals: {str(e)}")
+            raise
+
+    async def _recalculate_allocations(self, portfolio_id: str, db) -> None:
+        """
+        Recalculate allocation percentages for all holdings in a portfolio
+        """
+        try:
+            # Get portfolio to get total value
+            portfolio = await db.portfolio.find_unique(
+                where={'id': portfolio_id}
+            )
+            
+            if not portfolio or portfolio.totalValue == 0:
+                logger.warning(f"Portfolio {portfolio_id} has zero total value, setting all allocations to 0")
+                await db.portfolioholding.update_many(
+                    where={'portfolioId': portfolio_id},
+                    data={'allocation': 0.0}
+                )
+                return
+            
+            # Get all holdings for this portfolio
+            holdings = await db.portfolioholding.find_many(
+                where={'portfolioId': portfolio_id}
+            )
+            
+            # Update allocation for each holding
+            for holding in holdings:
+                allocation = (holding.totalValue / portfolio.totalValue) * 100 if portfolio.totalValue > 0 else 0.0
+                await db.portfolioholding.update(
+                    where={'id': holding.id},
+                    data={'allocation': allocation}
+                )
+            
+            logger.info(f"Updated allocations for {len(holdings)} holdings in portfolio {portfolio_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to recalculate allocations: {str(e)}")
+            raise
+
     async def sync_portfolio(self, api_key: str, secret_key: str, testnet: bool, portfolio_id: str, db) -> Dict[str, Any]:
         """
         Sync portfolio data from Binance account
@@ -476,23 +499,31 @@ class BinanceAPIService:
         try:
             from prisma import Prisma
             
+            logger.info(f"Starting portfolio sync for portfolio_id: {portfolio_id}, testnet: {testnet}")
+            
             # Get account info
             account_data = await self.get_account_info(api_key, secret_key, testnet)
+            logger.info(f"Got account data with {len(account_data.get('balances', []))} balances")
             
             synced_holdings = 0
             updated_assets = 0
             
             # Process balances
-            for balance in account_data.get('balances', []):
+            balances = account_data.get('balances', [])
+            logger.info(f"Processing {len(balances)} balances")
+            
+            for balance in balances:
                 free_balance = float(balance['free'])
                 locked_balance = float(balance['locked'])
                 total_balance = free_balance + locked_balance
                 
+                asset_symbol = balance['asset']
+                logger.info(f"Processing {asset_symbol}: free={free_balance}, locked={locked_balance}, total={total_balance}")
+                
                 # Skip zero balances
                 if total_balance <= 0:
+                    logger.info(f"Skipping {asset_symbol} due to zero balance")
                     continue
-                
-                asset_symbol = balance['asset']
                 
                 # Get or create asset
                 asset = await db.asset.find_first(
@@ -592,8 +623,15 @@ class BinanceAPIService:
                     )
                 
                 synced_holdings += 1
+                logger.info(f"Successfully synced holding for {asset_symbol}: quantity={total_balance}, value={total_value}")
                 
             logger.info(f"Successfully synced portfolio from Binance: {synced_holdings} holdings, {updated_assets} assets")
+            
+            # Recalculate portfolio totals after syncing holdings
+            await self._recalculate_portfolio_totals(portfolio_id, db)
+            
+            # Update allocations for all holdings
+            await self._recalculate_allocations(portfolio_id, db)
             
             return {
                 'synced_holdings': synced_holdings,
@@ -601,7 +639,10 @@ class BinanceAPIService:
             }
             
         except Exception as e:
-            logger.error(f"Failed to sync portfolio from Binance: {e}")
+            logger.error(f"Failed to sync portfolio from Binance: {str(e)}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
 
 # Global instance

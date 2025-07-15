@@ -166,6 +166,14 @@ async def get_holdings(
                 allocation=holding.allocation,
                 created_at=holding.createdAt,
                 updated_at=holding.updatedAt,
+                asset={
+                    "id": holding.asset.id,
+                    "symbol": holding.asset.symbol,
+                    "name": holding.asset.name,
+                    "type": holding.asset.type,
+                    "current_price": holding.asset.currentPrice,
+                    "price_change_percentage_24h": holding.asset.change24h or 0.0,
+                },
             ))
         
         portfolio_summary = PortfolioSummaryResponse(

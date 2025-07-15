@@ -98,8 +98,7 @@ async def get_api_keys(
     """Get all API keys for the current user"""
     try:
         api_keys = await db.apikey.find_many(
-            where={"userId": current_user_id},
-            order_by=[{"createdAt": "desc"}]
+            where={"userId": current_user_id}
         )
         
         api_key_responses = []
@@ -214,74 +213,7 @@ async def delete_api_key(
         logger.error(f"Delete API key failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete API key")
 
-@router.post("/{api_key_id}/test", response_model=TestConnectionResponse)
-async def test_api_key_connection(
-    api_key_id: str,
-    current_user_id: str = Depends(get_verified_user_id),
-    db: Prisma = Depends(get_db)
-):
-    """Test API key connection"""
-    try:
-        # Get API key
-        api_key = await db.apikey.find_first(
-            where={
-                "id": api_key_id,
-                "userId": current_user_id
-            }
-        )
-        
-        if not api_key:
-            raise HTTPException(status_code=404, detail="API key not found")
-        
-        if not api_key.isActive:
-            raise HTTPException(status_code=400, detail="API key is not active")
-        
-        # Decrypt API keys
-        decrypted_api_key = decrypt_api_key(api_key.apiKey)
-        decrypted_secret_key = decrypt_api_key(api_key.secretKey)
-        
-        # Test connection based on provider
-        if api_key.provider == "BINANCE":
-            # Test Binance connection
-            binance_service = BinanceAPIService()
-            try:
-                # Test with account info endpoint (requires API key)
-                test_result = await binance_service.test_connection(
-                    api_key=decrypted_api_key,
-                    secret_key=decrypted_secret_key,
-                    testnet=api_key.testnet
-                )
-                
-                # Update last used timestamp
-                await db.apikey.update(
-                    where={"id": api_key_id},
-                    data={"lastUsed": datetime.now()}
-                )
-                
-                return TestConnectionResponse(
-                    success=True,
-                    message="Connection test successful",
-                    connection_details=test_result
-                )
-                
-            except Exception as e:
-                logger.error(f"Binance API connection test failed: {e}")
-                return TestConnectionResponse(
-                    success=False,
-                    message=f"Connection test failed: {str(e)}"
-                )
-                
-        else:
-            return TestConnectionResponse(
-                success=False,
-                message=f"Connection test not implemented for {api_key.provider}"
-            )
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Test API key connection failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to test connection")
+
 
 @router.post("/sync-portfolio", response_model=SyncPortfolioResponse)
 async def sync_portfolio(
@@ -361,7 +293,10 @@ async def sync_portfolio(
                     )
                     
             except Exception as e:
-                logger.error(f"Failed to sync portfolio for API key {api_key.id}: {e}")
+                logger.error(f"Failed to sync portfolio for API key {api_key.id}: {str(e)}")
+                logger.error(f"Exception type: {type(e).__name__}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 continue
         
         # Update portfolio totals

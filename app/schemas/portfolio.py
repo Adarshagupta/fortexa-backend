@@ -34,6 +34,18 @@ class PortfolioSummaryResponse(BaseModel):
     holdings_count: int
     last_updated: datetime
 
+# Asset schema for holdings response
+class AssetInfo(BaseModel):
+    id: str
+    symbol: str
+    name: str
+    type: str
+    current_price: float
+    price_change_percentage_24h: float = 0.0
+    
+    class Config:
+        from_attributes = True
+
 # Portfolio holding schemas
 class HoldingResponse(BaseModel):
     id: str
@@ -50,6 +62,7 @@ class HoldingResponse(BaseModel):
     allocation: float
     created_at: datetime
     updated_at: datetime
+    asset: AssetInfo
     
     class Config:
         from_attributes = True
