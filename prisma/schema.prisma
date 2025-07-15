@@ -45,6 +45,7 @@ model User {
   sessions                     UserSession[]
   settings                     UserSettings?
   watchlists                   Watchlist[]
+  apiKeys                      ApiKey[]
 
   @@map("users")
 }
@@ -465,6 +466,33 @@ model RateLimitRule {
 
   @@unique([identifier, ruleType])
   @@map("rate_limit_rules")
+}
+
+model ApiKey {
+  id          String     @id @default(cuid())
+  userId      String
+  provider    ApiProvider @default(BINANCE)
+  name        String
+  apiKey      String     // Encrypted
+  secretKey   String     // Encrypted
+  testnet     Boolean    @default(false)
+  isActive    Boolean    @default(true)
+  lastUsed    DateTime?
+  permissions String[]   // Array of permission strings
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, name])
+  @@map("api_keys")
+}
+
+enum ApiProvider {
+  BINANCE
+  COINBASE
+  KRAKEN
+  BITFINEX
+  KUCOIN
 }
 
 enum AssetType {

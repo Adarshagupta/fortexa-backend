@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import auth, users, portfolio, assets, trades, alerts, news, market, notifications, settings, signals, security
+from app.api.v1.endpoints import api_keys
 
 api_router = APIRouter()
 
@@ -15,4 +16,5 @@ api_router.include_router(market.router, prefix="/market", tags=["market"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
 api_router.include_router(signals.router, prefix="/signals", tags=["signals"])
-api_router.include_router(security.router, prefix="/security", tags=["security"]) 
+api_router.include_router(security.router, prefix="/security", tags=["security"])
+api_router.include_router(api_keys.router, prefix="/api-keys", tags=["api-keys"]) 

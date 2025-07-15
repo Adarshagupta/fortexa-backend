@@ -3,6 +3,10 @@ import asyncio
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
+import hmac
+import hashlib
+import time
+from urllib.parse import urlencode
 from app.core.logger import logger
 from app.core.config import settings
 from app.services.cache_service import cache_service
@@ -15,6 +19,7 @@ class BinanceAPIService:
     
     def __init__(self):
         self.base_url = "https://api.binance.com"
+        self.testnet_base_url = "https://testnet.binance.vision"
         self.timeout = 10.0
         self.session = None
         
@@ -342,6 +347,261 @@ class BinanceAPIService:
             
         except Exception as e:
             logger.error(f"Failed to get market summary: {e}")
+            raise
+
+    # Private API methods for authenticated requests
+    
+    def _get_base_url(self, testnet: bool = False) -> str:
+        """Get base URL based on testnet flag"""
+        return self.testnet_base_url if testnet else self.base_url
+    
+    def _generate_signature(self, query_string: str, secret_key: str) -> str:
+        """Generate signature for authenticated requests"""
+        return hmac.new(
+            secret_key.encode('utf-8'),
+            query_string.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+    
+    def _get_timestamp(self) -> int:
+        """Get current timestamp in milliseconds"""
+        return int(time.time() * 1000)
+    
+    async def test_connection(self, api_key: str, secret_key: str, testnet: bool = False) -> Dict[str, Any]:
+        """
+        Test connection to Binance API with provided credentials
+        """
+        try:
+            base_url = self._get_base_url(testnet)
+            session = await self.get_session()
+            
+            # Create query parameters
+            timestamp = self._get_timestamp()
+            query_params = {
+                'timestamp': timestamp
+            }
+            
+            # Create query string and signature
+            query_string = urlencode(query_params)
+            signature = self._generate_signature(query_string, secret_key)
+            
+            # Add signature to query string
+            query_string += f"&signature={signature}"
+            
+            # Make request to account endpoint
+            response = await session.get(
+                f"{base_url}/api/v3/account?{query_string}",
+                headers={
+                    'X-MBX-APIKEY': api_key,
+                    'User-Agent': 'Fortexa-Trading-App/1.0'
+                }
+            )
+            
+            response.raise_for_status()
+            account_data = response.json()
+            
+            # Extract relevant connection info
+            connection_info = {
+                'account_type': account_data.get('accountType', 'SPOT'),
+                'can_trade': account_data.get('canTrade', False),
+                'can_withdraw': account_data.get('canWithdraw', False),
+                'can_deposit': account_data.get('canDeposit', False),
+                'permissions': account_data.get('permissions', []),
+                'balances_count': len(account_data.get('balances', [])),
+                'testnet': testnet
+            }
+            
+            logger.info(f"Successfully tested Binance API connection (testnet: {testnet})")
+            return connection_info
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Binance API connection test failed: {e}")
+            if e.response.status_code == 401:
+                raise Exception("Invalid API key or secret")
+            elif e.response.status_code == 403:
+                raise Exception("API key does not have required permissions")
+            else:
+                raise Exception(f"API connection failed: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error testing Binance connection: {e}")
+            raise
+    
+    async def get_account_info(self, api_key: str, secret_key: str, testnet: bool = False) -> Dict[str, Any]:
+        """
+        Get account information including balances
+        """
+        try:
+            base_url = self._get_base_url(testnet)
+            session = await self.get_session()
+            
+            # Create query parameters
+            timestamp = self._get_timestamp()
+            query_params = {
+                'timestamp': timestamp
+            }
+            
+            # Create query string and signature
+            query_string = urlencode(query_params)
+            signature = self._generate_signature(query_string, secret_key)
+            
+            # Add signature to query string
+            query_string += f"&signature={signature}"
+            
+            # Make request to account endpoint
+            response = await session.get(
+                f"{base_url}/api/v3/account?{query_string}",
+                headers={
+                    'X-MBX-APIKEY': api_key,
+                    'User-Agent': 'Fortexa-Trading-App/1.0'
+                }
+            )
+            
+            response.raise_for_status()
+            account_data = response.json()
+            
+            logger.info(f"Successfully fetched account info (testnet: {testnet})")
+            return account_data
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch account info: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error fetching account info: {e}")
+            raise
+    
+    async def sync_portfolio(self, api_key: str, secret_key: str, testnet: bool, portfolio_id: str, db) -> Dict[str, Any]:
+        """
+        Sync portfolio data from Binance account
+        """
+        try:
+            from prisma import Prisma
+            
+            # Get account info
+            account_data = await self.get_account_info(api_key, secret_key, testnet)
+            
+            synced_holdings = 0
+            updated_assets = 0
+            
+            # Process balances
+            for balance in account_data.get('balances', []):
+                free_balance = float(balance['free'])
+                locked_balance = float(balance['locked'])
+                total_balance = free_balance + locked_balance
+                
+                # Skip zero balances
+                if total_balance <= 0:
+                    continue
+                
+                asset_symbol = balance['asset']
+                
+                # Get or create asset
+                asset = await db.asset.find_first(
+                    where={'symbol': asset_symbol}
+                )
+                
+                if not asset:
+                    # Create new asset
+                    try:
+                        # Get current price for the asset
+                        current_price = 0.0
+                        if asset_symbol != 'USDT':
+                            try:
+                                ticker_data = await self.get_symbol_ticker(f"{asset_symbol}USDT")
+                                current_price = float(ticker_data['lastPrice'])
+                            except:
+                                # If we can't get price, set to 0
+                                current_price = 0.0
+                        else:
+                            current_price = 1.0  # USDT is always 1
+                        
+                        asset = await db.asset.create(
+                            data={
+                                'symbol': asset_symbol,
+                                'name': asset_symbol,  # We'll update this later with proper names
+                                'type': 'CRYPTOCURRENCY',
+                                'currentPrice': current_price,
+                                'priceUpdatedAt': datetime.now()
+                            }
+                        )
+                        updated_assets += 1
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to create asset {asset_symbol}: {e}")
+                        continue
+                
+                # Get current price
+                current_price = asset.currentPrice
+                if asset_symbol != 'USDT' and current_price == 0:
+                    try:
+                        ticker_data = await self.get_symbol_ticker(f"{asset_symbol}USDT")
+                        current_price = float(ticker_data['lastPrice'])
+                        
+                        # Update asset price
+                        await db.asset.update(
+                            where={'id': asset.id},
+                            data={
+                                'currentPrice': current_price,
+                                'priceUpdatedAt': datetime.now()
+                            }
+                        )
+                        
+                    except:
+                        current_price = 0.0
+                
+                # Calculate values
+                total_value = total_balance * current_price
+                
+                # Check if holding already exists
+                existing_holding = await db.portfolioholding.find_first(
+                    where={
+                        'portfolioId': portfolio_id,
+                        'assetId': asset.id
+                    }
+                )
+                
+                if existing_holding:
+                    # Update existing holding
+                    await db.portfolioholding.update(
+                        where={'id': existing_holding.id},
+                        data={
+                            'quantity': total_balance,
+                            'currentPrice': current_price,
+                            'totalValue': total_value,
+                            'gainLoss': total_value - existing_holding.totalCost,
+                            'gainLossPercent': ((total_value - existing_holding.totalCost) / existing_holding.totalCost) * 100 if existing_holding.totalCost > 0 else 0,
+                            'allocation': 0.0,  # Will be calculated later
+                            'updatedAt': datetime.now()
+                        }
+                    )
+                else:
+                    # Create new holding
+                    await db.portfolioholding.create(
+                        data={
+                            'portfolioId': portfolio_id,
+                            'assetId': asset.id,
+                            'symbol': asset_symbol,
+                            'quantity': total_balance,
+                            'averagePrice': current_price,  # Assume current price as average
+                            'currentPrice': current_price,
+                            'totalValue': total_value,
+                            'totalCost': total_value,  # Assume current value as cost
+                            'gainLoss': 0.0,
+                            'gainLossPercent': 0.0,
+                            'allocation': 0.0  # Will be calculated later
+                        }
+                    )
+                
+                synced_holdings += 1
+                
+            logger.info(f"Successfully synced portfolio from Binance: {synced_holdings} holdings, {updated_assets} assets")
+            
+            return {
+                'synced_holdings': synced_holdings,
+                'updated_assets': updated_assets
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to sync portfolio from Binance: {e}")
             raise
 
 # Global instance
