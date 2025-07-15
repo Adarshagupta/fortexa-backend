@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     NEWS_API_KEY: str = ""
     MARKET_DATA_API_KEY: str = ""
     
+    # API Key Encryption
+    API_KEY_ENCRYPTION_KEY: str = ""
+    
     # File upload settings
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     UPLOAD_DIRECTORY: str = "uploads"
