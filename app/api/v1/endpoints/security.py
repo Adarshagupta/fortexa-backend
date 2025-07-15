@@ -29,6 +29,34 @@ async def get_current_user_id(
     token_data = auth_service.verify_token(token)
     return token_data["user_id"]
 
+async def get_verified_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    auth_service: AuthService = Depends(get_auth_service),
+    db: Prisma = Depends(get_db)
+) -> str:
+    """Get current user ID from token with email verification and MFA requirements"""
+    token = credentials.credentials
+    token_data = auth_service.verify_token(token)
+    user_id = token_data["user_id"]
+    
+    # Get user details to check verification status
+    user = await db.user.find_unique(where={"id": user_id})
+    if not user:
+        from app.core.exceptions import UserNotFoundException
+        raise UserNotFoundException()
+    
+    # Check if email is verified
+    if not user.isEmailVerified:
+        from app.core.exceptions import EmailNotVerifiedException
+        raise EmailNotVerifiedException()
+    
+    # Check if MFA is enabled
+    if not user.isMfaEnabled:
+        from app.core.exceptions import MFANotSetupException
+        raise MFANotSetupException()
+    
+    return user_id
+
 # Response Models
 class SecurityEventResponse(BaseModel):
     id: str
@@ -90,7 +118,7 @@ class SecurityChartDataResponse(BaseModel):
 
 @router.get("/events", response_model=List[SecurityEventResponse])
 async def get_security_events(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     severity: Optional[str] = Query(None),
     event_type: Optional[str] = Query(None),
     start_date: Optional[datetime] = Query(None),
@@ -156,7 +184,7 @@ async def get_security_events(
 
 @router.get("/login-attempts", response_model=List[LoginAttemptResponse])
 async def get_login_attempts(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     is_successful: Optional[bool] = Query(None),
     is_suspicious: Optional[bool] = Query(None),
     start_date: Optional[datetime] = Query(None),
@@ -217,7 +245,7 @@ async def get_login_attempts(
 
 @router.get("/ip-stats", response_model=List[IPStatsResponse])
 async def get_ip_stats(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     reputation: Optional[str] = Query(None),
     is_blacklisted: Optional[bool] = Query(None),
     limit: int = Query(50, le=200),
@@ -268,7 +296,7 @@ async def get_ip_stats(
 
 @router.get("/metrics", response_model=SecurityMetricsResponse)
 async def get_security_metrics(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     days: int = Query(7, le=90),
     db: Prisma = Depends(get_db)
 ):
@@ -414,7 +442,7 @@ async def get_security_metrics(
 
 @router.get("/chart-data", response_model=List[SecurityChartDataResponse])
 async def get_security_chart_data(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     days: int = Query(7, le=30),
     db: Prisma = Depends(get_db)
 ):
@@ -477,7 +505,7 @@ async def get_security_chart_data(
 async def blacklist_ip(
     ip_address: str,
     reason: str,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     security_service: SecurityService = Depends(get_security_service)
 ):
     """Blacklist an IP address"""
@@ -492,7 +520,7 @@ async def blacklist_ip(
 @router.post("/unlock-account/{user_id}")
 async def unlock_account(
     user_id: str,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Unlock a user account"""
@@ -525,7 +553,7 @@ async def unlock_account(
 @router.post("/resolve-event/{event_id}")
 async def resolve_security_event(
     event_id: str,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Mark a security event as resolved"""
@@ -548,7 +576,7 @@ async def resolve_security_event(
 @router.get("/threat-intel/{ip_address}")
 async def get_threat_intelligence(
     ip_address: str,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     security_service: SecurityService = Depends(get_security_service)
 ):
     """Get threat intelligence for an IP address"""

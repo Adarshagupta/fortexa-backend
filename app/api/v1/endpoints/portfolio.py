@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.schemas.portfolio import *
 from app.schemas.market import AssetSummaryResponse
-from app.api.v1.endpoints.auth import get_current_user_id
+from app.api.v1.endpoints.auth import get_verified_user_id
 from app.core.logger import logger
 from app.core.exceptions import *
 
@@ -14,7 +14,7 @@ router = APIRouter()
 @router.post("/", response_model=PortfolioResponse)
 async def create_portfolio(
     request: CreatePortfolioRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Create a new portfolio"""
@@ -71,7 +71,7 @@ async def create_portfolio(
 
 @router.get("/", response_model=List[PortfolioResponse])
 async def get_portfolios(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Get user's portfolios"""
@@ -103,7 +103,7 @@ async def get_portfolios(
 
 @router.get("/summary", response_model=PortfolioSummaryResponse)
 async def get_portfolio_summary(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Get portfolio summary"""
@@ -132,7 +132,7 @@ async def get_portfolio_summary(
 
 @router.get("/holdings", response_model=HoldingsListResponse)
 async def get_holdings(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Get all portfolio holdings"""
@@ -191,7 +191,7 @@ async def get_holdings(
 @router.post("/holdings", response_model=AddHoldingResponse)
 async def add_holding(
     request: AddHoldingRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Add a new holding to portfolio"""
@@ -293,7 +293,7 @@ async def add_holding(
 async def update_holding(
     holding_id: str,
     request: UpdateHoldingRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Update a portfolio holding"""
@@ -380,7 +380,7 @@ async def update_holding(
 @router.delete("/holdings/{holding_id}", response_model=RemoveHoldingResponse)
 async def remove_holding(
     holding_id: str,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Remove a holding from portfolio"""
@@ -426,7 +426,7 @@ async def remove_holding(
 @router.get("/performance", response_model=PortfolioPerformanceResponse)
 async def get_portfolio_performance(
     timeframe: str = Query("30d", pattern="^(7d|30d|90d|1y|all)$"),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Get portfolio performance data"""
@@ -499,7 +499,7 @@ async def get_portfolio_performance(
 
 @router.get("/analytics", response_model=PortfolioAnalyticsResponse)
 async def get_portfolio_analytics(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Get portfolio analytics and insights"""

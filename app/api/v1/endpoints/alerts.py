@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 from app.core.database import get_db
-from app.api.v1.endpoints.auth import get_current_user_id
+from app.api.v1.endpoints.auth import get_verified_user_id
 from app.schemas.alerts import AlertsListResponse, AlertResponse, CreateAlertRequest, UpdateAlertRequest
 from app.core.logger import logger
 from datetime import datetime
@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/", response_model=AlertsListResponse)
 async def get_alerts(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Get user alerts"""
@@ -68,7 +68,7 @@ async def get_alerts(
 @router.post("/", response_model=AlertResponse)
 async def create_alert(
     request: CreateAlertRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Create new alert"""
@@ -122,7 +122,7 @@ async def create_alert(
 async def update_alert(
     alert_id: str,
     request: UpdateAlertRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Update an alert"""
@@ -179,7 +179,7 @@ async def update_alert(
 @router.delete("/{alert_id}")
 async def delete_alert(
     alert_id: str,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Delete an alert"""

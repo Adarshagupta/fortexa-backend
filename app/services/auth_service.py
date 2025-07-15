@@ -211,23 +211,8 @@ class AuthService:
             await self.security_service.log_login_attempt(context, False, "Account locked")
             raise AuthenticationException("Account is temporarily locked due to security concerns")
         
-        # Analyze login attempt for security threats (only for existing users)
-        analysis = await self.security_service.analyze_login_attempt(context)
-        
-        # Block if security analysis indicates high risk
-        if not analysis.is_allowed:
-            await self.security_service.log_login_attempt(context, False, analysis.block_reason)
-            
-            # Log security event
-            await self.security_service.log_security_event(
-                "LOGIN_BLOCKED", user.id, "HIGH", 
-                f"Login blocked: {analysis.block_reason}", context.ip_address,
-                {"threats": analysis.threats, "risk_score": analysis.risk_score}
-            )
-            
-            raise AuthenticationException(f"Login blocked: {analysis.block_reason}")
-        
-        # Verify password
+        # Verify password FIRST (before security analysis)
+        # This ensures we can authenticate users even if they haven't completed onboarding
         if not self.verify_password(password, user.password):
             await self.security_service.log_login_attempt(context, False, "Invalid password")
             
@@ -257,11 +242,62 @@ class AuthService:
             await self.security_service.log_login_attempt(context, False, "Account deactivated")
             raise AuthenticationException("Account is deactivated")
         
+        # Now analyze login attempt for security threats (after password verification)
+        analysis = await self.security_service.analyze_login_attempt(context)
+        
+        # Add detailed logging for debugging
+        logger.info(f"Security analysis for {email}: risk_score={analysis.risk_score}, threats={analysis.threats}")
+        
+        # For very high risk logins, still block them even with valid credentials
+        # In development mode, be extremely permissive
+        block_threshold = 15.0 if settings.DEBUG else 9.5
+        
+        if analysis.risk_score > block_threshold:
+            await self.security_service.log_login_attempt(context, False, analysis.block_reason)
+            
+            # Log security event
+            await self.security_service.log_security_event(
+                "LOGIN_BLOCKED", user.id, "HIGH", 
+                f"Login blocked: {analysis.block_reason}", context.ip_address,
+                {"threats": analysis.threats, "risk_score": analysis.risk_score}
+            )
+            
+            # Add more detailed error message
+            raise AuthenticationException(f"Login blocked due to security concerns: {analysis.block_reason}. Threats detected: {', '.join(analysis.threats)}")
+        
         # Update security context with successful authentication
         context.risk_score = analysis.risk_score
         context.is_suspicious = analysis.risk_score > 5.0
         
-        # Check if MFA is enabled
+        # Check if email is verified or MFA is enabled
+        # Allow login with valid credentials but require onboarding completion for full access
+        if not user.isEmailVerified or not user.isMfaEnabled:
+            # Log partial login success (onboarding required)
+            await self.security_service.log_login_attempt(context, True, "Login successful - onboarding required")
+            
+            # Create basic access tokens for onboarding
+            tokens = await self._create_user_tokens(user.id)
+            
+            # Return user response with current verification status
+            user_response = UserResponse(
+                id=user.id,
+                email=user.email,
+                first_name=user.firstName,
+                last_name=user.lastName,
+                display_name=user.displayName,
+                phone_number=user.phoneNumber,
+                profile_picture=user.profilePicture,
+                is_active=user.isActive,
+                is_email_verified=user.isEmailVerified,
+                is_mfa_enabled=user.isMfaEnabled,
+                created_at=user.createdAt,
+                updated_at=user.updatedAt,
+            )
+            
+            logger.info(f"User logged in successfully but needs onboarding: {email}")
+            return user_response, tokens, False
+        
+        # If MFA is enabled and email is verified, check for MFA requirement
         if user.isMfaEnabled:
             # Log partial login success (MFA pending)
             await self.security_service.log_login_attempt(context, False, "MFA required")

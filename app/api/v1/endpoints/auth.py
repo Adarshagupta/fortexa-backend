@@ -24,6 +24,52 @@ async def get_current_user_id(
     token_data = auth_service.verify_token(token)
     return token_data["user_id"]
 
+async def get_email_verified_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    auth_service: AuthService = Depends(get_auth_service),
+    db: Prisma = Depends(get_db)
+) -> str:
+    """Get current user ID from token with email verification requirement only"""
+    token = credentials.credentials
+    token_data = auth_service.verify_token(token)
+    user_id = token_data["user_id"]
+    
+    # Get user details to check verification status
+    user = await db.user.find_unique(where={"id": user_id})
+    if not user:
+        raise UserNotFoundException()
+    
+    # Check if email is verified
+    if not user.isEmailVerified:
+        raise EmailNotVerifiedException()
+    
+    return user_id
+
+async def get_verified_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    auth_service: AuthService = Depends(get_auth_service),
+    db: Prisma = Depends(get_db)
+) -> str:
+    """Get current user ID from token with email verification and MFA requirements"""
+    token = credentials.credentials
+    token_data = auth_service.verify_token(token)
+    user_id = token_data["user_id"]
+    
+    # Get user details to check verification status
+    user = await db.user.find_unique(where={"id": user_id})
+    if not user:
+        raise UserNotFoundException()
+    
+    # Check if email is verified
+    if not user.isEmailVerified:
+        raise EmailNotVerifiedException()
+    
+    # Check if MFA is enabled
+    if not user.isMfaEnabled:
+        raise MFANotSetupException()
+    
+    return user_id
+
 @router.post("/register", response_model=RegisterResponse)
 async def register(
     request: RegisterRequest,
@@ -178,7 +224,7 @@ async def reset_password(
 @router.post("/change-password", response_model=ChangePasswordResponse)
 async def change_password(
     request: ChangePasswordRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """Change user password"""
@@ -248,7 +294,7 @@ async def resend_verification(
 # MFA Endpoints
 @router.post("/mfa/setup", response_model=MFASetupResponse)
 async def setup_mfa(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_email_verified_user_id),
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """Setup MFA for user"""
@@ -304,7 +350,7 @@ async def verify_mfa(
 @router.post("/mfa/disable", response_model=MFADisableResponse)
 async def disable_mfa(
     request: MFADisableRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """Disable MFA for user"""

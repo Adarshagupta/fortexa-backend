@@ -287,6 +287,25 @@ class SecurityService:
         """Comprehensive analysis of a login attempt"""
         analysis = LoginAnalysis()
         
+        # In development mode, be very permissive with security checks
+        if settings.DEBUG:
+            logger.info("DEBUG MODE: Skipping most security checks for development")
+            
+            # Still do basic rate limiting to prevent abuse, but with much higher limits
+            await self._check_rate_limits(context, analysis)
+            
+            # Calculate minimal risk score
+            analysis.risk_score = self._calculate_risk_score(analysis.threats)
+            
+            # In debug mode, only block if risk score is extremely high (basically never)
+            if analysis.risk_score > 15.0:  # Virtually impossible threshold
+                analysis.is_allowed = False
+                analysis.block_reason = "Extremely high risk score detected"
+            
+            logger.info(f"DEBUG MODE: Risk score={analysis.risk_score}, threats={analysis.threats}, allowed={analysis.is_allowed}")
+            return analysis
+        
+        # Production mode: Full security checks
         # Perform security checks concurrently for better performance
         await asyncio.gather(
             self._check_rate_limits(context, analysis),
@@ -326,7 +345,12 @@ class SecurityService:
     async def _check_ip_rate_limit(self, ip_address: str, analysis: LoginAnalysis):
         """Check IP-based rate limiting"""
         window_minutes = 15
-        max_attempts = 10
+        
+        # In development mode, be much more permissive with rate limits
+        if settings.DEBUG:
+            max_attempts = 100  # Very high limit for development
+        else:
+            max_attempts = 20  # Production limit
         
         window_start = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
         
@@ -338,6 +362,8 @@ class SecurityService:
             }
         )
         
+        logger.info(f"IP rate limit check for {ip_address}: {recent_attempts}/{max_attempts} attempts in last {window_minutes} minutes")
+        
         if recent_attempts >= max_attempts:
             analysis.threats.append("IP_RATE_LIMIT_EXCEEDED")
             analysis.required_actions.append("BLOCK_REQUEST")
@@ -347,7 +373,12 @@ class SecurityService:
     async def _check_user_rate_limit(self, user_id: str, analysis: LoginAnalysis):
         """Check user-based rate limiting"""
         window_minutes = 10
-        max_attempts = 5
+        
+        # In development mode, be much more permissive with rate limits
+        if settings.DEBUG:
+            max_attempts = 50  # Very high limit for development
+        else:
+            max_attempts = 10  # Production limit
         
         window_start = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
         
@@ -359,6 +390,8 @@ class SecurityService:
                 "createdAt": {"gte": window_start}
             }
         )
+        
+        logger.info(f"User rate limit check for {user_id}: {recent_failures}/{max_attempts} failed attempts in last {window_minutes} minutes")
         
         if recent_failures >= max_attempts:
             analysis.threats.append("USER_RATE_LIMIT_EXCEEDED")
@@ -376,7 +409,11 @@ class SecurityService:
             where={"ipAddress": context.ip_address}
         )
         
+        logger.info(f"IP reputation check for {context.ip_address}: record exists={ip_record is not None}")
+        
         if ip_record:
+            logger.info(f"IP record details: blacklisted={ip_record.isBlacklisted}, reputation={ip_record.reputation}, vpn={ip_record.isVpn}, proxy={ip_record.isProxy}, tor={ip_record.isTor}")
+            
             if ip_record.isBlacklisted:
                 analysis.threats.append("BLACKLISTED_IP")
                 analysis.required_actions.append("BLOCK_REQUEST")

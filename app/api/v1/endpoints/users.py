@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from app.core.database import get_db
-from app.api.v1.endpoints.auth import get_current_user_id
+from app.api.v1.endpoints.auth import get_verified_user_id
 from app.core.logger import logger
 from app.schemas.auth import UserResponse
 
@@ -19,7 +19,7 @@ class UpdateProfileRequest(BaseModel):
 
 @router.get("/profile", response_model=UserResponse)
 async def get_user_profile(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Get user profile"""
@@ -53,7 +53,7 @@ async def get_user_profile(
 @router.put("/profile", response_model=UserResponse)
 async def update_user_profile(
     request: UpdateProfileRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Update user profile"""
@@ -115,7 +115,7 @@ async def update_user_profile(
 
 @router.delete("/account")
 async def delete_user_account(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_verified_user_id),
     db: Prisma = Depends(get_db)
 ):
     """Delete user account"""

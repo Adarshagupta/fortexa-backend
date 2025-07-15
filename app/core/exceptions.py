@@ -70,6 +70,24 @@ class InvalidMFACodeException(AuthenticationException):
             error_code="INVALID_MFA_CODE"
         )
 
+class EmailNotVerifiedException(AuthenticationException):
+    """Email not verified exception"""
+    
+    def __init__(self):
+        super().__init__(
+            detail="Email address must be verified before accessing this resource",
+            error_code="EMAIL_NOT_VERIFIED"
+        )
+
+class MFANotSetupException(AuthenticationException):
+    """MFA not setup exception"""
+    
+    def __init__(self):
+        super().__init__(
+            detail="Two-factor authentication must be enabled before accessing this resource",
+            error_code="MFA_NOT_SETUP"
+        )
+
 # Security Exceptions
 class SecurityException(CustomException):
     """Security related exceptions"""
