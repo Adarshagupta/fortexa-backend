@@ -101,7 +101,7 @@ async def search_assets(
         assets = await db.asset.find_many(
             where=where_clause,
             take=request.limit,
-            order_by={"marketCap": "desc"}
+            order={"marketCap": "desc"}
         )
         
         # Convert to response
@@ -142,7 +142,7 @@ async def get_asset_price_history(
         # Get price history
         price_history = await db.pricehistory.find_many(
             where={"assetId": asset_id},
-            order_by={"timestamp": "desc"},
+            order={"timestamp": "desc"},
             take=100  # Limit to last 100 data points
         )
         

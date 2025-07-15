@@ -468,7 +468,7 @@ async def get_portfolio_performance(
                     "lte": end_date
                 }
             },
-            order_by={"date": "asc"}
+            order={"date": "asc"}
         )
         
         # Convert to response format

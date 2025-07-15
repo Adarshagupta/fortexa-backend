@@ -23,7 +23,7 @@ async def get_news(
         # Get news articles
         news_articles = await db.newsarticle.find_many(
             where=where_clause,
-            order_by={"publishedAt": "desc"},
+            order={"publishedAt": "desc"},
             take=limit
         )
         
@@ -108,7 +108,7 @@ async def get_public_news(
     try:
         news_articles = await db.newsarticle.find_many(
             where={"isActive": True},
-            order_by={"publishedAt": "desc"},
+            order={"publishedAt": "desc"},
             take=limit
         )
         

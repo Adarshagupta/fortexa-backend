@@ -154,7 +154,7 @@ async def get_security_events(
                     "select": {"email": True}
                 }
             },
-            order_by={"createdAt": "desc"},
+            order={"createdAt": "desc"},
             take=limit,
             skip=offset
         )
@@ -215,7 +215,7 @@ async def get_login_attempts(
         # Get login attempts
         attempts = await db.loginattempt.find_many(
             where=where_clause,
-            order_by={"createdAt": "desc"},
+            order={"createdAt": "desc"},
             take=limit,
             skip=offset
         )
@@ -266,7 +266,7 @@ async def get_ip_stats(
         # Get IP stats
         ip_stats = await db.ipaddress.find_many(
             where=where_clause,
-            order_by={"loginAttempts": "desc"},
+            order={"loginAttempts": "desc"},
             take=limit,
             skip=offset
         )

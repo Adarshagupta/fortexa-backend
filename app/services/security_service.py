@@ -277,11 +277,23 @@ class SecurityService:
                 headers={'User-Agent': 'Fortexa-Security/1.0'}
             )
             if response.status_code == 200:
-                data = response.json()
-                self.tor_exit_nodes = set(data.get('ExitAddresses', []))
-                logger.info(f"Loaded {len(self.tor_exit_nodes)} Tor exit nodes")
-        except Exception as e:
+                try:
+                    data = response.json()
+                    self.tor_exit_nodes = set(data.get('ExitAddresses', []))
+                    logger.info(f"Loaded {len(self.tor_exit_nodes)} Tor exit nodes")
+                except ValueError as json_error:
+                    logger.warning(f"Invalid JSON response from Tor API: {json_error}")
+                    # Use alternative source or fallback
+                    self.tor_exit_nodes = set()
+            else:
+                logger.warning(f"Tor API returned status {response.status_code}")
+                self.tor_exit_nodes = set()
+        except requests.RequestException as e:
             logger.error(f"Failed to load Tor exit nodes: {e}")
+            self.tor_exit_nodes = set()
+        except Exception as e:
+            logger.error(f"Unexpected error loading Tor exit nodes: {e}")
+            self.tor_exit_nodes = set()
     
     async def analyze_login_attempt(self, context: SecurityContext) -> LoginAnalysis:
         """Comprehensive analysis of a login attempt"""
@@ -442,7 +454,7 @@ class SecurityService:
                 "userId": context.user_id,
                 "createdAt": {"gte": datetime.now(timezone.utc) - timedelta(days=30)}
             },
-            order_by={"createdAt": "desc"},
+            order={"createdAt": "desc"},
             take=10
         )
         

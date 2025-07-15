@@ -17,7 +17,7 @@ async def get_alerts(
     try:
         alerts = await db.alert.find_many(
             where={"userId": current_user_id},
-            order_by={"createdAt": "desc"},
+            order={"createdAt": "desc"},
             include={"asset": True}
         )
         

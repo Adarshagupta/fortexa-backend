@@ -131,7 +131,7 @@ async def get_trading_signals(db: Prisma = Depends(get_db)):
     try:
         signals = await db.tradingsignal.find_many(
             where={"isActive": True},
-            order_by={"createdAt": "desc"},
+            order={"createdAt": "desc"},
             take=20,
             include={"asset": True}
         )
