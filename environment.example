@@ -19,7 +19,7 @@ MFA_ISSUER=Fortexa
 MFA_WINDOW=2
 
 # CORS Settings
-BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:19006,https://fortexa.com,https://www.fortexa.com,https://app.fortexa.com
+BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:19006,https://fortexa.tech,https://www.fortexa.tech,https://app.fortexa.tech
 
 # Server Configuration
 DEBUG=true
@@ -34,6 +34,9 @@ SMTP_USER=y91d66b001@smtp-brevo.com
 SMTP_PASSWORD=Y2kPR69hV4fXCbBE
 EMAILS_FROM_EMAIL=91d66b001@smtp-brevo.com
 EMAILS_FROM_NAME=Fortexa
+
+# Frontend URL for email links
+FRONTEND_URL=https://fortexa.tech
 
 
 # Redis Configuration

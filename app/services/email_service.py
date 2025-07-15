@@ -490,7 +490,7 @@ The Fortexa Security Team
             </div>
             
             <p style="text-align: center;">
-                <a href="http://localhost:3000/security" class="button">Review Security Settings</a>
+                <a href="{{ security_url }}" class="button">Review Security Settings</a>
             </p>
             
             <p>Best regards,<br>The Fortexa Security Team</p>
@@ -520,7 +520,8 @@ The Fortexa Security Team
             location=alert_details.get('location', 'Unknown'),
             device=alert_details.get('device', 'Unknown'),
             browser=alert_details.get('browser', 'Unknown'),
-            risk_score=alert_details.get('risk_score', 'Unknown')
+            risk_score=alert_details.get('risk_score', 'Unknown'),
+            security_url=f"{settings.FRONTEND_URL}/security"
         )
         
         text_content = f"""
@@ -538,7 +539,7 @@ Alert Details:
 
 Immediate Action Required: Please review this activity and secure your account if necessary.
 
-Review your security settings: http://localhost:3000/security
+Review your security settings: {settings.FRONTEND_URL}/security
 
 Best regards,
 The Fortexa Security Team
@@ -555,7 +556,7 @@ The Fortexa Security Team
         verification_token: str
     ) -> bool:
         """Send email verification email"""
-        verification_url = f"http://localhost:3000/auth/verify-email?token={verification_token}"
+        verification_url = f"{settings.FRONTEND_URL}/auth/verify-email?token={verification_token}"
         
         subject = "Verify Your Fortexa Account"
         
@@ -626,7 +627,7 @@ The Fortexa Team
         reset_token: str
     ) -> bool:
         """Send password reset email"""
-        reset_url = f"http://localhost:3000/auth/reset-password?token={reset_token}"
+        reset_url = f"{settings.FRONTEND_URL}/auth/reset-password?token={reset_token}"
         
         subject = "Reset Your Fortexa Password"
         

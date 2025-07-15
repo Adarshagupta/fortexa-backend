@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     MFA_WINDOW: int = 2
     
     # CORS settings (simplified)
-    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:19006,https://fortexa.com,https://www.fortexa.com,https://app.fortexa.com"
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:19006,https://fortexa.tech,https://www.fortexa.tech,https://app.fortexa.com"
     
     @property
     def cors_origins(self) -> List[str]:
@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAILS_FROM_EMAIL: str = "noreply@fortexa.com"
     EMAILS_FROM_NAME: str = "Fortexa"
+    
+    # Frontend URL for email links
+    FRONTEND_URL: str = "https://fortexa.tech"
     
     # Redis settings
     REDIS_URL: str = "redis://localhost:6379"
