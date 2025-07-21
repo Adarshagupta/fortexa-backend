@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from prisma import Prisma
 from typing import List, Optional
 from datetime import datetime
@@ -575,7 +576,7 @@ async def get_angel_one_auth_url(
         if not client_id:
             raise HTTPException(status_code=500, detail="Angel One OAuth not configured")
         
-        # Angel One OAuth URL
+        # Angel One OAuth URL with state parameter for user identification
         auth_url = f"https://smartapi.angelbroking.com/publisher-login?api_key={client_id}&redirect_url={redirect_uri}&state={current_user_id}"
         
         return {
@@ -599,7 +600,8 @@ async def get_zerodha_auth_url(
         if not client_id:
             raise HTTPException(status_code=500, detail="Zerodha OAuth not configured")
         
-        # Zerodha Kite Connect OAuth URL
+        # Zerodha Kite Connect OAuth URL with state parameter
+        # Note: Zerodha doesn't support state parameter, so we'll handle user association differently
         auth_url = f"https://kite.trade/connect/login?api_key={client_id}&v=3"
         
         return {
@@ -613,8 +615,10 @@ async def get_zerodha_auth_url(
 
 @router.get("/angel-one/callback")
 async def angel_one_oauth_callback(
-    code: str,
-    state: str,
+    auth_token: str,
+    feed_token: str,
+    refresh_token: str,
+    state: str = None,
     db: Prisma = Depends(get_db)
 ):
     """Handle Angel One OAuth callback"""
@@ -625,41 +629,99 @@ async def angel_one_oauth_callback(
         if not client_id or not client_secret:
             raise HTTPException(status_code=500, detail="Angel One OAuth not configured")
         
-        # Exchange code for access token
-        # (Angel One specific OAuth token exchange logic here)
+        # Extract user ID from state or decode from auth_token
+        user_id = state
+        if not user_id:
+            # If state is missing, try to extract user info from auth_token
+            # This is a fallback - in production you'd parse the JWT
+            user_id = "temp-user"  # You'd need to implement proper user extraction
         
         # Store the connected account
         api_key = await db.apikey.create(
             data={
-                "userId": state,  # user_id from state parameter
+                "userId": user_id,
                 "name": "Angel One Account",
                 "provider": "ANGEL_ONE",
-                "apiKey": encrypt_api_key(client_id),
-                "secretKey": encrypt_api_key(code),  # Store the OAuth code/token
+                "apiKey": encrypt_api_key(auth_token),
+                "secretKey": encrypt_api_key(refresh_token),
                 "testnet": False,
                 "permissions": ["read", "trade"],
                 "isActive": True,
             }
         )
         
-        logger.info(f"Angel One account connected for user {state}")
+        logger.info(f"Angel One account connected for user {user_id}")
         
-        # Redirect back to frontend
-        return {
-            "success": True,
-            "message": "Angel One account connected successfully",
-            "redirect": "https://fortexa.tech/settings?connected=angel-one"
-        }
+        # Redirect back to frontend with success message
+        redirect_response = HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Angel One Connected</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }}
+                .success {{ color: #4ade80; font-size: 24px; margin-bottom: 20px; }}
+                .message {{ font-size: 16px; margin-bottom: 30px; }}
+                .redirect {{ color: #60a5fa; }}
+            </style>
+        </head>
+        <body>
+            <div class="success">✅ Angel One Account Connected!</div>
+            <div class="message">Your Angel One account has been successfully connected to Fortexa.</div>
+            <div class="redirect">You can now close this window and return to the app.</div>
+            <script>
+                // Close the popup window
+                setTimeout(function() {{
+                    if (window.opener) {{
+                        window.opener.location.reload();
+                        window.close();
+                    }} else {{
+                        window.location.href = 'https://fortexa.tech/settings?connected=angel-one';
+                    }}
+                }}, 2000);
+            </script>
+        </body>
+        </html>
+        """)
+        
+        return redirect_response
         
     except Exception as e:
         logger.error(f"Angel One OAuth callback failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to connect Angel One account")
+        error_response = HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Connection Failed</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }}
+                .error {{ color: #ef4444; font-size: 24px; margin-bottom: 20px; }}
+                .message {{ font-size: 16px; }}
+            </style>
+        </head>
+        <body>
+            <div class="error">❌ Connection Failed</div>
+            <div class="message">Failed to connect Angel One account. Please try again.</div>
+            <script>
+                setTimeout(function() {{
+                    if (window.opener) {{
+                        window.close();
+                    }} else {{
+                        window.location.href = 'https://fortexa.tech/settings';
+                    }}
+                }}, 3000);
+            </script>
+        </body>
+        </html>
+        """)
+        return error_response
 
 @router.get("/zerodha/callback")
 async def zerodha_oauth_callback(
     request_token: str,
     action: str,
     status: str,
+    state: str = None,
     db: Prisma = Depends(get_db)
 ):
     """Handle Zerodha OAuth callback"""
@@ -671,18 +733,40 @@ async def zerodha_oauth_callback(
             raise HTTPException(status_code=500, detail="Zerodha OAuth not configured")
         
         if status != "success":
-            raise HTTPException(status_code=400, detail="Zerodha authorization failed")
+            error_response = HTMLResponse(content="""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authorization Failed</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
+                    .error { color: #ef4444; font-size: 24px; margin-bottom: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="error">❌ Zerodha Authorization Failed</div>
+                <div>Please try connecting again.</div>
+                <script>
+                    setTimeout(function() {
+                        if (window.opener) { window.close(); }
+                        else { window.location.href = 'https://fortexa.tech/settings'; }
+                    }, 3000);
+                </script>
+            </body>
+            </html>
+            """)
+            return error_response
         
-        # Exchange request token for access token
-        # (Zerodha specific OAuth token exchange logic here)
+        # Extract user ID from state parameter
+        user_id = state or "temp-user"  # In production, implement proper user session handling
         
-        # For now, we'll store the request token and implement full OAuth later
-        # In production, you'd exchange this for an access token using Zerodha's API
+        # TODO: Exchange request token for access token using Zerodha's API
+        # For now, we store the request token and will implement full OAuth later
         
         # Store the connected account
         api_key = await db.apikey.create(
             data={
-                "userId": "user_from_session",  # You'll need to get user_id from session
+                "userId": user_id,
                 "name": "Zerodha Account", 
                 "provider": "ZERODHA",
                 "apiKey": encrypt_api_key(client_id),
@@ -693,15 +777,67 @@ async def zerodha_oauth_callback(
             }
         )
         
-        logger.info(f"Zerodha account connected with request token: {request_token}")
+        logger.info(f"Zerodha account connected for user {user_id} with request token: {request_token}")
         
-        # Redirect back to frontend
-        return {
-            "success": True,
-            "message": "Zerodha account connected successfully",
-            "redirect": "https://fortexa.tech/settings?connected=zerodha"
-        }
+        # Return success HTML response
+        success_response = HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Zerodha Connected</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
+                .success { color: #4ade80; font-size: 24px; margin-bottom: 20px; }
+                .message { font-size: 16px; margin-bottom: 30px; }
+                .redirect { color: #60a5fa; }
+            </style>
+        </head>
+        <body>
+            <div class="success">✅ Zerodha Account Connected!</div>
+            <div class="message">Your Zerodha account has been successfully connected to Fortexa.</div>
+            <div class="redirect">You can now close this window and return to the app.</div>
+            <script>
+                setTimeout(function() {
+                    if (window.opener) {
+                        window.opener.location.reload();
+                        window.close();
+                    } else {
+                        window.location.href = 'https://fortexa.tech/settings?connected=zerodha';
+                    }
+                }, 2000);
+            </script>
+        </body>
+        </html>
+        """)
+        
+        return success_response
         
     except Exception as e:
         logger.error(f"Zerodha OAuth callback failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to connect Zerodha account") 
+        error_response = HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Connection Failed</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }}
+                .error {{ color: #ef4444; font-size: 24px; margin-bottom: 20px; }}
+                .message {{ font-size: 16px; }}
+            </style>
+        </head>
+        <body>
+            <div class="error">❌ Connection Failed</div>
+            <div class="message">Failed to connect Zerodha account: {str(e)[:100]}...</div>
+            <script>
+                setTimeout(function() {{
+                    if (window.opener) {{
+                        window.close();
+                    }} else {{
+                        window.location.href = 'https://fortexa.tech/settings';
+                    }}
+                }}, 3000);
+            </script>
+        </body>
+        </html>
+        """)
+        return error_response 
