@@ -82,12 +82,30 @@ class Settings(BaseSettings):
     # Angel One OAuth Integration
     ANGEL_ONE_CLIENT_ID: str = ""
     ANGEL_ONE_CLIENT_SECRET: str = ""
-    ANGEL_ONE_REDIRECT_URL: str = "https://api.fortexa.tech/api/v1/api-keys/angel-one/callback"
+    ANGEL_ONE_REDIRECT_URL: str = ""  # Will be set based on environment
     
     # Zerodha OAuth Integration  
     ZERODHA_CLIENT_ID: str = ""
     ZERODHA_CLIENT_SECRET: str = ""
-    ZERODHA_REDIRECT_URL: str = "https://api.fortexa.tech/api/v1/api-keys/zerodha/callback"
+    ZERODHA_REDIRECT_URL: str = ""  # Will be set based on environment
+    
+    # Development tunnel URL for OAuth testing
+    DEVELOPMENT_BASE_URL: str = "https://rngpj-2409-40e4-115b-ea95-ddb0-88e9-ea0b-10ef.a.free.pinggy.link"
+    PRODUCTION_BASE_URL: str = "https://api.fortexa.tech"
+    
+    @property
+    def get_angel_one_redirect_url(self) -> str:
+        if self.ENVIRONMENT == "production":
+            return f"{self.PRODUCTION_BASE_URL}/api/v1/api-keys/angel-one/callback"
+        else:
+            return f"{self.DEVELOPMENT_BASE_URL}/api/v1/api-keys/angel-one/callback"
+    
+    @property  
+    def get_zerodha_redirect_url(self) -> str:
+        if self.ENVIRONMENT == "production":
+            return f"{self.PRODUCTION_BASE_URL}/api/v1/api-keys/zerodha/callback"
+        else:
+            return f"{self.DEVELOPMENT_BASE_URL}/api/v1/api-keys/zerodha/callback"
     
     
     # File upload settings

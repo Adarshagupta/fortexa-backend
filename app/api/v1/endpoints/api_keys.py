@@ -12,6 +12,7 @@ from app.schemas.api_keys import *
 from app.api.v1.endpoints.auth import get_current_user_id
 from app.core.logger import logger
 from app.core.exceptions import *
+from app.core.config import settings
 from app.services.binance_service import BinanceAPIService
 from app.services.zerodha_service import zerodha_service
 from app.services.angel_one_service import angel_one_service
@@ -571,7 +572,7 @@ async def get_angel_one_auth_url(
     """Get Angel One OAuth authorization URL"""
     try:
         client_id = os.getenv('ANGEL_ONE_CLIENT_ID')
-        redirect_uri = os.getenv('ANGEL_ONE_REDIRECT_URL', 'https://fortexa.tech/api/v1/api-keys/angel-one/callback')
+        redirect_uri = settings.get_angel_one_redirect_url
         
         if not client_id:
             raise HTTPException(status_code=500, detail="Angel One OAuth not configured")
@@ -595,7 +596,7 @@ async def get_zerodha_auth_url(
     """Get Zerodha OAuth authorization URL"""
     try:
         client_id = os.getenv('ZERODHA_CLIENT_ID')
-        redirect_uri = os.getenv('ZERODHA_REDIRECT_URL', 'https://fortexa.tech/api/v1/api-keys/zerodha/callback')
+        redirect_uri = settings.get_zerodha_redirect_url
         
         if not client_id:
             raise HTTPException(status_code=500, detail="Zerodha OAuth not configured")
