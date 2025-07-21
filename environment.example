@@ -54,18 +54,18 @@ MARKET_DATA_API_KEY=your-market-data-api-key
 # Angel One OAuth Integration (One app registration for all users)
 # Register once at https://smartapi.angelbroking.com/ with these details:
 # App Name: Fortexa Portfolio Aggregator
-# Redirect URL: https://fortexa.tech/api/v1/api-keys/angel-one/callback
+# Redirect URL: https://api.fortexa.tech/api/v1/api-keys/angel-one/callback
 ANGEL_ONE_CLIENT_ID=your-angel-one-oauth-client-id
 ANGEL_ONE_CLIENT_SECRET=your-angel-one-oauth-client-secret
-ANGEL_ONE_REDIRECT_URL=https://fortexa.tech/api/v1/api-keys/angel-one/callback
+ANGEL_ONE_REDIRECT_URL=https://api.fortexa.tech/api/v1/api-keys/angel-one/callback
 
 # Zerodha OAuth Integration (One app registration for all users)
 # Register once at https://developers.kite.trade/ with these details:
 # App Name: Fortexa Portfolio Aggregator  
-# Redirect URL: https://fortexa.tech/api/v1/api-keys/zerodha/callback
+# Redirect URL: https://api.fortexa.tech/api/v1/api-keys/zerodha/callback
 ZERODHA_CLIENT_ID=your-zerodha-oauth-client-id
 ZERODHA_CLIENT_SECRET=your-zerodha-oauth-client-secret
-ZERODHA_REDIRECT_URL=https://fortexa.tech/api/v1/api-keys/zerodha/callback
+ZERODHA_REDIRECT_URL=https://api.fortexa.tech/api/v1/api-keys/zerodha/callback
 
 # API Key Encryption (Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 API_KEY_ENCRYPTION_KEY=your-api-key-encryption-key-here

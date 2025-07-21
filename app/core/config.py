@@ -82,12 +82,12 @@ class Settings(BaseSettings):
     # Angel One OAuth Integration
     ANGEL_ONE_CLIENT_ID: str = ""
     ANGEL_ONE_CLIENT_SECRET: str = ""
-    ANGEL_ONE_REDIRECT_URL: str = "https://fortexa.tech/api/v1/api-keys/angel-one/callback"
+    ANGEL_ONE_REDIRECT_URL: str = "https://api.fortexa.tech/api/v1/api-keys/angel-one/callback"
     
     # Zerodha OAuth Integration  
     ZERODHA_CLIENT_ID: str = ""
     ZERODHA_CLIENT_SECRET: str = ""
-    ZERODHA_REDIRECT_URL: str = "https://fortexa.tech/api/v1/api-keys/zerodha/callback"
+    ZERODHA_REDIRECT_URL: str = "https://api.fortexa.tech/api/v1/api-keys/zerodha/callback"
     
     # File upload settings
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
