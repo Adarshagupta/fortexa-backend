@@ -1,0 +1,631 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                           String          @id @default(cuid())
+  email                        String          @unique
+  password                     String
+  firstName                    String?
+  lastName                     String?
+  displayName                  String?
+  phoneNumber                  String?
+  profilePicture               String?
+  isActive                     Boolean         @default(true)
+  isEmailVerified              Boolean         @default(false)
+  emailVerificationToken       String?
+  isMfaEnabled                 Boolean         @default(false)
+  mfaSecret                    String?
+  mfaBackupCodes               String[]
+  lastLoginAt                  DateTime?
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+  emailVerificationTokenExpiry DateTime?
+  passwordResetToken           String?
+  passwordResetTokenExpiry     DateTime?
+  emailVerificationOtp         String?
+  emailVerificationOtpExpiry   DateTime?
+  accountLockedUntil           DateTime?
+  failedLoginAttempts          Int             @default(0)
+  lastLoginIp                  String?
+  riskScore                    Float           @default(0.0)
+  suspiciousActivityCount      Int             @default(0)
+  alerts                       Alert[]
+  loginAttempts                LoginAttempt[]
+  notifications                Notification[]
+  portfolio                    Portfolio?
+  securityEvents               SecurityEvent[]
+  trades                       Trade[]
+  trustedDevices               TrustedDevice[]
+  sessions                     UserSession[]
+  settings                     UserSettings?
+  watchlists                   Watchlist[]
+  apiKeys                      ApiKey[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id                String   @id @default(cuid())
+  userId            String
+  refreshToken      String   @unique
+  accessToken       String
+  deviceInfo        String?
+  ipAddress         String?
+  userAgent         String?
+  isActive          Boolean  @default(true)
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  city              String?
+  country           String?
+  deviceFingerprint String?
+  isSuspicious      Boolean  @default(false)
+  location          String?
+  riskScore         Float    @default(0.0)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model UserSettings {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  theme                String   @default("dark")
+  currency             String   @default("USD")
+  language             String   @default("en")
+  timezone             String   @default("UTC")
+  emailNotifications   Boolean  @default(true)
+  pushNotifications    Boolean  @default(true)
+  tradingNotifications Boolean  @default(true)
+  newsNotifications    Boolean  @default(true)
+  priceAlerts          Boolean  @default(true)
+  portfolioUpdates     Boolean  @default(true)
+  marketUpdates        Boolean  @default(true)
+  isPrivateMode        Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model Portfolio {
+  id                   String                 @id @default(cuid())
+  userId               String                 @unique
+  name                 String                 @default("My Portfolio")
+  totalValue           Float                  @default(0)
+  totalCost            Float                  @default(0)
+  totalGainLoss        Float                  @default(0)
+  totalGainLossPercent Float                  @default(0)
+  lastUpdated          DateTime               @default(now())
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  holdings             PortfolioHolding[]
+  performances         PortfolioPerformance[]
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("portfolios")
+}
+
+model PortfolioHolding {
+  id              String    @id @default(cuid())
+  portfolioId     String
+  assetId         String
+  symbol          String
+  quantity        Float
+  averagePrice    Float
+  currentPrice    Float
+  totalValue      Float
+  totalCost       Float
+  gainLoss        Float
+  gainLossPercent Float
+  allocation      Float
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  asset           Asset     @relation(fields: [assetId], references: [id])
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, assetId])
+  @@map("portfolio_holdings")
+}
+
+model PortfolioPerformance {
+  id              String    @id @default(cuid())
+  portfolioId     String
+  date            DateTime
+  totalValue      Float
+  totalCost       Float
+  gainLoss        Float
+  gainLossPercent Float
+  createdAt       DateTime  @default(now())
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, date])
+  @@map("portfolio_performance")
+}
+
+model Asset {
+  id             String             @id @default(cuid())
+  symbol         String             @unique
+  name           String
+  type           AssetType
+  description    String?
+  logoUrl        String?
+  currentPrice   Float
+  marketCap      Float?
+  volume24h      Float?
+  quoteVolume24h Float?
+  change24h      Float?
+  priceChange24h Float?
+  change7d       Float?
+  change30d      Float?
+  high24h        Float?
+  low24h         Float?
+  openPrice      Float?
+  prevClosePrice Float?
+  bidPrice       Float?
+  askPrice       Float?
+  priceUpdatedAt DateTime           @default(now())
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  alerts         Alert[]
+  holdings       PortfolioHolding[]
+  priceHistory   PriceHistory[]
+  trades         Trade[]
+  tradingSignals TradingSignal[]
+  watchlistItems WatchlistItem[]
+
+  @@map("assets")
+}
+
+model PriceHistory {
+  id        String   @id @default(cuid())
+  assetId   String
+  timestamp DateTime
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    Float
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, timestamp])
+  @@map("price_history")
+}
+
+model Watchlist {
+  id          String          @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  isDefault   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       WatchlistItem[]
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("watchlists")
+}
+
+model WatchlistItem {
+  id          String    @id @default(cuid())
+  watchlistId String
+  assetId     String
+  addedAt     DateTime  @default(now())
+  asset       Asset     @relation(fields: [assetId], references: [id])
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, assetId])
+  @@map("watchlist_items")
+}
+
+model Alert {
+  id           String         @id @default(cuid())
+  userId       String
+  assetId      String
+  type         AlertType
+  condition    AlertCondition
+  targetPrice  Float
+  currentPrice Float
+  isActive     Boolean        @default(true)
+  isTriggered  Boolean        @default(false)
+  triggeredAt  DateTime?
+  message      String?
+  expiresAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  asset        Asset          @relation(fields: [assetId], references: [id])
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("alerts")
+}
+
+model Trade {
+  id          String      @id @default(cuid())
+  userId      String
+  assetId     String
+  type        TradeType
+  side        TradeSide
+  quantity    Float
+  price       Float
+  totalValue  Float
+  fees        Float       @default(0)
+  status      TradeStatus @default(PENDING)
+  executedAt  DateTime?
+  cancelledAt DateTime?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  asset       Asset       @relation(fields: [assetId], references: [id])
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("trades")
+}
+
+model TradingSignal {
+  id           String     @id @default(cuid())
+  assetId      String
+  type         SignalType
+  strength     Float
+  confidence   Float
+  currentPrice Float
+  targetPrice  Float
+  stopLoss     Float?
+  timeframe    String
+  reasoning    String
+  aiModel      String
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  asset        Asset      @relation(fields: [assetId], references: [id])
+
+  @@map("trading_signals")
+}
+
+model NewsArticle {
+  id             String   @id @default(cuid())
+  title          String
+  content        String
+  summary        String?
+  author         String?
+  source         String
+  sourceUrl      String
+  imageUrl       String?
+  category       String?
+  tags           String[]
+  publishedAt    DateTime
+  sentiment      Float?
+  relevanceScore Float?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("news_articles")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  category  String?
+  data      Json?
+  isRead    Boolean          @default(false)
+  isPush    Boolean          @default(false)
+  isEmail   Boolean          @default(false)
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     LogLevel
+  message   String
+  module    String
+  function  String?
+  userId    String?
+  data      Json?
+  createdAt DateTime @default(now())
+
+  @@map("system_logs")
+}
+
+model LoginAttempt {
+  id                String   @id @default(cuid())
+  userId            String?
+  email             String
+  ipAddress         String
+  userAgent         String?
+  deviceFingerprint String?
+  location          String?
+  country           String?
+  city              String?
+  isSuccessful      Boolean
+  failureReason     String?
+  riskScore         Float    @default(0.0)
+  isBlocked         Boolean  @default(false)
+  isSuspicious      Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  user              User?    @relation(fields: [userId], references: [id])
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([isSuccessful, createdAt])
+  @@map("login_attempts")
+}
+
+model SecurityEvent {
+  id          String            @id @default(cuid())
+  userId      String?
+  eventType   SecurityEventType
+  severity    SecuritySeverity
+  description String
+  ipAddress   String?
+  userAgent   String?
+  location    String?
+  metadata    Json?
+  isResolved  Boolean           @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime          @default(now())
+  user        User?             @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([severity, createdAt])
+  @@map("security_events")
+}
+
+model IpAddress {
+  id            String       @id @default(cuid())
+  ipAddress     String       @unique
+  country       String?
+  city          String?
+  region        String?
+  timezone      String?
+  latitude      Float?
+  longitude     Float?
+  isp           String?
+  organization  String?
+  isBlacklisted Boolean      @default(false)
+  isWhitelisted Boolean      @default(false)
+  riskScore     Float        @default(0.0)
+  reputation    IpReputation @default(UNKNOWN)
+  loginAttempts Int          @default(0)
+  failedLogins  Int          @default(0)
+  lastLoginAt   DateTime?
+  isVpn         Boolean      @default(false)
+  isProxy       Boolean      @default(false)
+  isTor         Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("ip_addresses")
+}
+
+model TrustedDevice {
+  id                String    @id @default(cuid())
+  userId            String
+  deviceFingerprint String
+  deviceName        String?
+  deviceType        String?
+  browser           String?
+  operatingSystem   String?
+  ipAddress         String?
+  location          String?
+  isActive          Boolean   @default(true)
+  lastUsedAt        DateTime  @default(now())
+  trustedUntil      DateTime?
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceFingerprint])
+  @@map("trusted_devices")
+}
+
+model SecurityRule {
+  id             String           @id @default(cuid())
+  name           String
+  description    String?
+  ruleType       SecurityRuleType
+  condition      Json
+  action         SecurityAction
+  isActive       Boolean          @default(true)
+  priority       Int              @default(100)
+  triggeredCount Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("security_rules")
+}
+
+model RateLimitRule {
+  id              String        @id @default(cuid())
+  identifier      String
+  ruleType        RateLimitType
+  maxAttempts     Int
+  windowMinutes   Int
+  currentAttempts Int           @default(0)
+  windowStart     DateTime
+  isBlocked       Boolean       @default(false)
+  blockedUntil    DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([identifier, ruleType])
+  @@map("rate_limit_rules")
+}
+
+model ApiKey {
+  id          String     @id @default(cuid())
+  userId      String
+  provider    ApiProvider @default(BINANCE)
+  name        String
+  apiKey      String     // Encrypted
+  secretKey   String     // Encrypted
+  testnet     Boolean    @default(false)
+  isActive    Boolean    @default(true)
+  lastUsed    DateTime?
+  permissions String[]   // Array of permission strings
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, name])
+  @@map("api_keys")
+}
+
+enum ApiProvider {
+  BINANCE
+  COINBASE
+  KRAKEN
+  BITFINEX
+  KUCOIN
+  ZERODHA
+  ANGEL_ONE
+  GROWW
+}
+
+enum AssetType {
+  CRYPTOCURRENCY
+  STOCK
+  ETF
+  FOREX
+  COMMODITY
+  BOND
+}
+
+enum AlertType {
+  PRICE_ABOVE
+  PRICE_BELOW
+  PRICE_CHANGE
+  VOLUME_SPIKE
+  NEWS_ALERT
+}
+
+enum AlertCondition {
+  GREATER_THAN
+  LESS_THAN
+  EQUAL_TO
+  PERCENT_CHANGE
+}
+
+enum TradeType {
+  MARKET
+  LIMIT
+  STOP_LOSS
+  STOP_LIMIT
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+enum TradeStatus {
+  PENDING
+  EXECUTED
+  CANCELLED
+  FAILED
+}
+
+enum SignalType {
+  BUY
+  SELL
+  HOLD
+}
+
+enum NotificationType {
+  TRADE_EXECUTED
+  PRICE_ALERT
+  NEWS_UPDATE
+  PORTFOLIO_UPDATE
+  SYSTEM_ALERT
+  SECURITY_ALERT
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  MULTIPLE_FAILED_LOGINS
+  SUSPICIOUS_LOGIN_PATTERN
+  UNUSUAL_LOCATION
+  BRUTE_FORCE_DETECTED
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  IP_BLACKLISTED
+  DEVICE_CHANGED
+  MFA_FAILED
+  MFA_BYPASSED
+  SESSION_HIJACKED
+  CONCURRENT_SESSIONS
+  PASSWORD_CHANGED
+  EMAIL_CHANGED
+  SECURITY_QUESTION_FAILED
+  SUSPICIOUS_USER_AGENT
+  VPN_DETECTED
+  TOR_DETECTED
+  COMPROMISED_CREDENTIALS
+}
+
+enum SecuritySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IpReputation {
+  TRUSTED
+  UNKNOWN
+  SUSPICIOUS
+  MALICIOUS
+}
+
+enum SecurityRuleType {
+  IP_BASED
+  USER_BEHAVIOR
+  DEVICE_BASED
+  GEOGRAPHIC
+  TIME_BASED
+  PATTERN_BASED
+}
+
+enum SecurityAction {
+  LOG_ONLY
+  REQUIRE_MFA
+  BLOCK_REQUEST
+  LOCK_ACCOUNT
+  ALERT_ADMIN
+  BLACKLIST_IP
+  REQUIRE_VERIFICATION
+}
+
+enum RateLimitType {
+  IP_LOGIN
+  USER_LOGIN
+  IP_GLOBAL
+  USER_GLOBAL
+  IP_API
+  USER_API
+}

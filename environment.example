@@ -1,0 +1,102 @@
+# Database Configuration
+DATABASE_URL=postgresql://neondb_owner:npg_sqpuiVB8OjQ5@ep-red-sun-a1n7n3pw-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+# Security Settings
+SECRET_KEY=your-secret-key-here-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_MINUTES=10080
+
+# Password Requirements
+MIN_PASSWORD_LENGTH=8
+REQUIRE_SPECIAL_CHARS=true
+REQUIRE_NUMBERS=true
+REQUIRE_UPPERCASE=true
+REQUIRE_LOWERCASE=true
+
+# MFA Settings
+MFA_ISSUER=Fortexa
+MFA_WINDOW=2
+
+# CORS Settings
+BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:19006,https://fortexa.tech,https://www.fortexa.tech,https://app.fortexa.tech
+
+# Server Configuration
+DEBUG=true
+PORT=8000
+ALLOWED_HOSTS=*
+
+# Email Configuration
+SMTP_TLS=true
+SMTP_PORT=587
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_USER=y91d66b001@smtp-brevo.com
+SMTP_PASSWORD=Y2kPR69hV4fXCbBE
+EMAILS_FROM_EMAIL=91d66b001@smtp-brevo.com
+EMAILS_FROM_NAME=Fortexa
+
+# Frontend URL for email links
+FRONTEND_URL=https://fortexa.tech
+
+
+# Redis Configuration
+REDIS_URL=redis://default:WFhNyESrHtTDe3PNQbLMVhHUuFxsFNvK@redis-14960.crce179.ap-south-1-1.ec2.redns.redis-cloud.com:14960
+
+# Celery Configuration
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# External API Keys
+CRYPTO_API_KEY=your-crypto-api-key
+NEWS_API_KEY=your-news-api-key
+MARKET_DATA_API_KEY=your-market-data-api-key
+
+# Angel One OAuth Integration (One app registration for all users)
+# Register once at https://smartapi.angelbroking.com/ with these details:
+# App Name: Fortexa Portfolio Aggregator
+# Redirect URL: https://fortexa.tech/api/v1/api-keys/angel-one/callback
+ANGEL_ONE_CLIENT_ID=your-angel-one-oauth-client-id
+ANGEL_ONE_CLIENT_SECRET=your-angel-one-oauth-client-secret
+ANGEL_ONE_REDIRECT_URL=https://fortexa.tech/api/v1/api-keys/angel-one/callback
+
+# Zerodha OAuth Integration (One app registration for all users)
+# Register once at https://developers.kite.trade/ with these details:
+# App Name: Fortexa Portfolio Aggregator  
+# Redirect URL: https://fortexa.tech/api/v1/api-keys/zerodha/callback
+ZERODHA_CLIENT_ID=your-zerodha-oauth-client-id
+ZERODHA_CLIENT_SECRET=your-zerodha-oauth-client-secret
+ZERODHA_REDIRECT_URL=https://fortexa.tech/api/v1/api-keys/zerodha/callback
+
+# API Key Encryption (Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+API_KEY_ENCRYPTION_KEY=your-api-key-encryption-key-here
+
+# File Upload Settings
+MAX_FILE_SIZE=10485760
+UPLOAD_DIRECTORY=uploads
+
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+
+# Rate Limiting
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=60
+
+# Background Job Intervals (seconds)
+MARKET_DATA_UPDATE_INTERVAL=60
+NEWS_UPDATE_INTERVAL=300
+PORTFOLIO_UPDATE_INTERVAL=300
+
+# AI/ML Configuration
+AI_MODEL_PATH=models/
+PREDICTION_CONFIDENCE_THRESHOLD=0.7
+
+# Notification Settings
+PUSH_NOTIFICATION_ENABLED=true
+EMAIL_NOTIFICATION_ENABLED=true
+
+# Feature Flags
+ENABLE_MFA=true
+ENABLE_TRADING=true
+ENABLE_AI_SIGNALS=true
+ENABLE_PORTFOLIO_ANALYTICS=true 
